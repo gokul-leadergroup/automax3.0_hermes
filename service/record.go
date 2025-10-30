@@ -13,6 +13,7 @@ type recordService struct {
 
 type RecordService interface {
 	GetNewRecords(sinceTime *time.Time) ([]models.Record, error)
+	SyncNow() error
 }
 
 func NewRecordService() RecordService {
@@ -23,4 +24,8 @@ func NewRecordService() RecordService {
 
 func (svc *recordService) GetNewRecords(sinceTime *time.Time) ([]models.Record, error) {
 	return svc.repo.GetNewRecords(sinceTime)
+}
+
+func (svc *recordService) SyncNow() error {
+	return svc.repo.SyncNow()
 }

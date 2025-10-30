@@ -3,7 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/gokul-leadergroup/automax3.0_hermes/service"
+	"github.com/gokul-leadergroup/automax3.0_hermes/jobs"
+	"github.com/hibiken/asynq"
 	"github.com/joho/godotenv"
 )
 
@@ -13,11 +14,6 @@ func main() {
 		log.Panicln("Error loading .env file", err)
 	}
 
-	svc := service.NewRecordService()
-	records, err := svc.GetNewRecords(nil)
-	if err != nil {
-		log.Panicln("Error fetching new records:", err)
-	}
-
-	log.Printf("Fetched %d new records\n", len(records))
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(jobs.TaskSyncViewDbWithLiveDb, jobs.SyncDatabases)
 }

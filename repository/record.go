@@ -71,7 +71,7 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	return records, nil
 }
 
-func (repo *RecordRepository) SyncViewDbWithLiveDb() error {
+func (repo *RecordRepository) SyncNow() error {
 	var latestCreatedAt time.Time
 
 	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
