@@ -70,3 +70,69 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	}
 	return records, nil
 }
+
+func (repo *RecordRepository) SyncViewDbWithLiveDb() error {
+	var latestCreatedAt time.Time
+
+	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
+
+	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	if err != nil {
+		log.Fatalf("Query failed: %v", err)
+	}
+
+	records, err := repo.GetNewRecords(&latestCreatedAt)
+	if err != nil {
+		return err
+	}
+
+		var incidents []models.Incident
+	for _, record := range records {
+		incident := models.Incident{
+			ID:                  record.ID,
+			CreatedAt:           record.CreatedAt,
+			UpdatedAt:           record.UpdatedAt,
+		}
+		for _, value := range record.Values {
+			switch value.Name {
+			case "Channel":
+				incident.Channel = value.Value
+			case "Criticality":
+				incident.Criticality = value.Value
+			case "CallerName":
+				incident.CallerName = value.Value
+			case "LastCallDate":
+				incident.LastCallDate = value.Value
+			case "NationalID":
+				incident.NationalID = value.Value
+			case "MobileNumber":
+				incident.MobileNumber = value.Value
+			case "NotesOnCaller":
+				incident.NotesOnCaller = value.Value
+			case "IncidentReason":
+				incident.IncidentReason = value.Value
+			case "IncidentDescription":
+				incident.IncidentDescription = value.Value
+			case "Map":
+				incident.Map = value.Value
+			case "District":
+				incident.District = value.Value
+			case "Street":
+				incident.Street = value.Value
+			case "Location":
+				incident.Location = value.Value
+			case "IncidentNo":
+				incident.IncidentNo = value.Value
+			case "Status":
+				incident.Status = value.Value
+			}
+		}
+
+		incidents = append(incidents, incident)
+	}
+
+	// TODO: Insert incidents into view database
+
+	return nil
+}
+

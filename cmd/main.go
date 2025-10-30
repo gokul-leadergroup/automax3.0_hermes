@@ -19,12 +19,5 @@ func main() {
 		log.Panicln("Error fetching new records:", err)
 	}
 
-	incSvc := service.NewIncidentService()
-	incidents, err := incSvc.IncidentsFromRecords(records)
-	if err != nil {
-		log.Panicln("Error converting records to incidents:", err)
-	}
-
-	log.Printf("Converted %d records to incidents\n", len(incidents))
 	log.Printf("Fetched %d new records\n", len(records))
 }
