@@ -44,7 +44,7 @@ func StartScheduler() {
 		log.Fatalf("❌ Could not register task: %v", err)
 	}
 
-	fmt.Printf("🕒 Scheduler started — will run at %02d:%02d (%s)\n", hour, minute, loc)
+	fmt.Printf("🕒 Hermes started — will sync databases at %02d:%02d (%s)\n", hour, minute, loc)
 
 	if err := scheduler.Run(); err != nil {
 		log.Fatal(err)
