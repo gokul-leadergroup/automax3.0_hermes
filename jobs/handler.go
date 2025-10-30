@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/gokul-leadergroup/automax3.0_hermes/service"
@@ -11,21 +10,22 @@ import (
 
 const TaskSyncViewDbWithLiveDb = "task:sync_view_db_with_live_db"
 
-// No payload → just create an empty task
+// Task Creator
 func NewDailyJobTask() *asynq.Task {
 	return asynq.NewTask(TaskSyncViewDbWithLiveDb, nil)
 }
 
-// Handler: your business logic here
+// Handler
 func SyncDatabases(ctx context.Context, t *asynq.Task) error {
-	log.Println("✅ Running daily scheduled task...")
+	log.Println("✅ Running sync databases task...")
 	recordSvc := service.NewRecordService()
 	err := recordSvc.SyncNow()
 	if err != nil {
 		return err
+		// TODO: Email notification on failure
 	}
 
-	fmt.Println("✅ Daily scheduled task completed successfully.")
+	log.Println("✅ Sync databases task completed successfully.")
 
 	return nil
 }

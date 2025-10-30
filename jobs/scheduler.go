@@ -8,19 +8,11 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-	"github.com/joho/godotenv"
 )
 
 func StartScheduler() {
-	// Load .env file
-	_ = godotenv.Load()
-
 	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
 
-	// Read time configs
 	hourStr := os.Getenv("SCHEDULE_HOUR")
 	minuteStr := os.Getenv("SCHEDULE_MINUTE")
 	timezone := os.Getenv("TIMEZONE")
@@ -29,7 +21,7 @@ func StartScheduler() {
 	minute, _ := strconv.Atoi(minuteStr)
 
 	if hourStr == "" {
-		hour = 0 // default midnight
+		hour = 0
 	}
 	if minuteStr == "" {
 		minute = 0
@@ -40,7 +32,6 @@ func StartScheduler() {
 		loc = time.Local
 	}
 
-	// Convert to CRON expression (minute hour * * *)
 	cronExpr := fmt.Sprintf("%d %d * * *", minute, hour)
 
 	scheduler := asynq.NewScheduler(
@@ -48,7 +39,6 @@ func StartScheduler() {
 		&asynq.SchedulerOpts{Location: loc},
 	)
 
-	// Register your daily task
 	_, err = scheduler.Register(cronExpr, NewDailyJobTask())
 	if err != nil {
 		log.Fatalf("❌ Could not register task: %v", err)

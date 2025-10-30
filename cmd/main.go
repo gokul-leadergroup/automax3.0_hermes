@@ -11,9 +11,8 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Panicln("Error loading .env file", err)
+	if err := godotenv.Load(); err != nil {
+		log.Panicln("Error loading .env file:", err)
 	}
 
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -25,9 +24,8 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(jobs.TaskSyncViewDbWithLiveDb, jobs.SyncDatabases)
 
-	go func() {
-		jobs.StartScheduler()
-	}()
+	// Start scheduler in a separate goroutine
+	go jobs.StartScheduler()
 
 	fmt.Println("🚀 Asynq worker and scheduler started...")
 	if err := srv.Run(mux); err != nil {
