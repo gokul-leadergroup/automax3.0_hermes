@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Incident struct {
 	ID 	  uint64  `json:"id"`
 	Channel string  `json:"channel"`
@@ -22,6 +24,6 @@ type Incident struct {
 	Location string  `json:"location"`
 	IncidentNo string  `json:"incident_no"`
 	Status string  `json:"status"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt *time.Time  `json:"updated_at"`
 }

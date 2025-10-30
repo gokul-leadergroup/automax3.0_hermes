@@ -12,7 +12,7 @@ type recordService struct {
 }
 
 type RecordService interface {
-	GetNewIncidents(sinceTime *time.Time) ([]models.Record, error)
+	GetNewRecords(sinceTime *time.Time) ([]models.Record, error)
 }
 
 func NewRecordService() RecordService {
@@ -21,6 +21,6 @@ func NewRecordService() RecordService {
 	}
 }
 
-func (svc *recordService) GetNewIncidents(sinceTime *time.Time) ([]models.Record, error) {
+func (svc *recordService) GetNewRecords(sinceTime *time.Time) ([]models.Record, error) {
 	return svc.repo.GetNewRecords(sinceTime)
 }
