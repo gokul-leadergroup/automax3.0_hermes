@@ -18,9 +18,21 @@ func NewDailyJobTask() *asynq.Task {
 // Handler
 func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 	log.Println("✅ Running sync databases task...")
+
+	log.Println("🔄 Syncing record table with incident table...")
 	recordSvc := service.NewRecordService()
 	err := recordSvc.SyncNow()
 	if err != nil {
+		log.Println("Failed to sync record table: " + err.Error())
+		return err
+		// TODO: Email notification on failure
+	}
+
+	log.Println("🔄 Syncing classification table...")
+	classificationSvc := service.NewClassificationService()
+	err = classificationSvc.SyncNow()
+	if err != nil {
+		log.Println("Failed to sync classification table: " + err.Error())
 		return err
 		// TODO: Email notification on failure
 	}
