@@ -56,6 +56,7 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	}
 	rows, err := repo.liveDb.Query(context.Background(), qry)
 	if err != nil {
+		log.Println("Failed to execute query: " + err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -64,6 +65,7 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	for rows.Next() {
 		var record models.Record
 		if err := rows.Scan(&record.ID, &record.Revision, &record.ModuleID, &record.Values, &record.Meta, &record.NamespaceID, &record.CreatedAt, &record.UpdatedAt, &record.DeletedAt, &record.OwnedBy, &record.CreatedBy, &record.UpdatedBy, &record.DeletedBy); err != nil {
+			log.Println("Failed to scan row: " + err.Error())
 			return nil, err
 		}
 		records = append(records, record)
@@ -78,20 +80,21 @@ func (repo *RecordRepository) SyncNow() error {
 
 	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
 	if err != nil {
-		log.Fatalf("Query failed: %v", err)
+		log.Println("Failed to execute query: " + err.Error())
 	}
 
 	records, err := repo.GetNewRecords(&latestCreatedAt)
 	if err != nil {
+		log.Println("Failed to get new records: " + err.Error())
 		return err
 	}
 
-		var incidents []models.Incident
+	var incidents []models.Incident
 	for _, record := range records {
 		incident := models.Incident{
-			ID:                  record.ID,
-			CreatedAt:           record.CreatedAt,
-			UpdatedAt:           record.UpdatedAt,
+			ID:        record.ID,
+			CreatedAt: record.CreatedAt,
+			UpdatedAt: record.UpdatedAt,
 		}
 		for _, value := range record.Values {
 			switch value.Name {
@@ -130,9 +133,9 @@ func (repo *RecordRepository) SyncNow() error {
 
 		incidents = append(incidents, incident)
 	}
+	log.Printf("Found %d new records to sync.\n", len(incidents))
 
 	// TODO: Insert incidents into view database
 
 	return nil
 }
-
