@@ -210,7 +210,5 @@ func (repo *RecordRepository) SyncNow() error {
 		log.Println("All incidents synced successfully.")
 	}
 
-	// TODO: Insert incidents into view database
-
 	return nil
 }
