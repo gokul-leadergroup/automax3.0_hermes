@@ -12,7 +12,7 @@ import (
 )
 
 const LIVE_DB_RECORD_TABLE = "compose_record_hab_ims"
-const VIEW_DB_INCIDENT_TABLE = "compose_record_hab_ims"
+const VIEW_DB_INCIDENT_TABLE = "compose_record_hab"
 
 var recordRepo *RecordRepository
 
@@ -50,10 +50,21 @@ func NewRecordRepository() *RecordRepository {
 func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Record, error) {
 	var qry = ""
 	if sinceTime == nil {
-		qry = fmt.Sprintf(`SELECT id, revision, rel_module, "values", meta, rel_namespace, created_at, updated_at, deleted_at, owned_by, created_by, updated_by, deleted_by FROM %s WHERE deleted_at is NULL;`, LIVE_DB_RECORD_TABLE)
+		qry = fmt.Sprintf(`
+		SELECT id, revision, rel_module, "values", meta, rel_namespace, 
+		       created_at, updated_at, deleted_at, owned_by, created_by, updated_by, deleted_by 
+		FROM %s 
+		WHERE deleted_at IS NULL;
+	`, LIVE_DB_RECORD_TABLE)
 	} else {
-		qry = fmt.Sprintf(`SELECT id, revision, rel_module, "values", meta, rel_namespace, created_at, updated_at, deleted_at, owned_by, created_by, updated_by, deleted_by FROM %s WHERE created_at > %s AND deleted_at is NULL;`, LIVE_DB_RECORD_TABLE, sinceTime.Format("2006-01-02 15:04:05-07"))
+		qry = fmt.Sprintf(`
+		SELECT id, revision, rel_module, "values", meta, rel_namespace, 
+		       created_at, updated_at, deleted_at, owned_by, created_by, updated_by, deleted_by 
+		FROM %s 
+		WHERE created_at > '%s' AND deleted_at IS NULL;
+	`, LIVE_DB_RECORD_TABLE, sinceTime.Format("2006-01-02 15:04:05-07"))
 	}
+
 	rows, err := repo.liveDb.Query(context.Background(), qry)
 	if err != nil {
 		log.Println("Failed to execute query: " + err.Error())
@@ -74,19 +85,32 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 }
 
 func (repo *RecordRepository) SyncNow() error {
-	var latestCreatedAt time.Time
+	var latestCreatedAt *time.Time // use a pointer
 
 	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
-
 	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
 	if err != nil {
-		log.Println("Failed to execute query: " + err.Error())
+		log.Println("Failed to execute query:", err)
+		return err
 	}
 
-	records, err := repo.GetNewRecords(&latestCreatedAt)
+	if latestCreatedAt == nil {
+		log.Println("Table is empty — no records found.")
+	} else {
+		log.Println("Latest created_at:", latestCreatedAt)
+	}
+
+	var records []models.Record
+	records, err = repo.GetNewRecords(latestCreatedAt)
+
 	if err != nil {
 		log.Println("Failed to get new records: " + err.Error())
 		return err
+	}
+
+	if len(records) == 0 {
+		log.Println("No new records to sync.")
+		return nil
 	}
 
 	var incidents []models.Incident
@@ -134,6 +158,57 @@ func (repo *RecordRepository) SyncNow() error {
 		incidents = append(incidents, incident)
 	}
 	log.Printf("Found %d new records to sync.\n", len(incidents))
+
+	insertLiveDbQry := fmt.Sprintf(`
+		INSERT INTO %s (
+			id, module_id, namespace_id, created_at, created_by, updated_at, updated_by, status, channel, district,
+			location, department, assigned_to, caller_name, criticality, mobile_number, classification, primary_location,
+			incident_description, incident_no, national_id, street
+		)
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			$11, $12, $13, $14, $15, $16, $17, $18,
+			$19, $20, $21, $22
+		);
+	`, VIEW_DB_INCIDENT_TABLE)
+
+	failed := []models.Incident{}
+	for _, incident := range incidents {
+		_, err := repo.viewDb.Exec(context.Background(), insertLiveDbQry,
+			incident.ID,
+			0,
+			0,
+			incident.CreatedAt,
+			0,
+			incident.UpdatedAt,
+			0,
+			incident.Status,
+			incident.Channel,
+			incident.District,
+			incident.Location,
+			incident.DepartmentID,
+			incident.AssignedTo,
+			incident.CallerName,
+			incident.Criticality,
+			incident.MobileNumber,
+			incident.ClassificationID,
+			incident.PrimaryLocationID,
+			incident.IncidentDescription,
+			incident.IncidentNo,
+			incident.NationalID,
+			incident.Street,
+		)
+		if err != nil {
+			log.Println("Failed to insert incident: " + err.Error())
+			failed = append(failed, incident)
+		}
+	}
+
+	if len(failed) > 0 {
+		log.Printf("Failed to sync %d incidents.\n", len(failed))
+	} else {
+		log.Println("All incidents synced successfully.")
+	}
 
 	// TODO: Insert incidents into view database
 
