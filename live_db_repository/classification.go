@@ -47,17 +47,6 @@ func NewClassificationRepository() *ClassificationRepository {
 	return &ClassificationRepository{liveDb: live_db_conn, viewDb: view_db_conn}
 }
 
-func (repo *ClassificationRepository) LatestClassificationCreatedAt() (*time.Time, error) {
-	var latestCreatedAt *time.Time
-	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_CLASSIFICATION_TABLE)
-	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
-	if err != nil {
-		log.Println("Failed to execute query:", err)
-		return nil, err
-	}
-	return latestCreatedAt, nil
-}
-
 func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time) ([]models.Classification, error) {
 	var qry = ""
 	if sinceTime == nil {
@@ -93,71 +82,3 @@ func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time
 	return classifications, nil
 }
 
-func (repo *ClassificationRepository) SyncViewDbWithLiveDB(classifications []models.Classification, tx pgx.Tx) error {
-	if len(classifications) == 0 {
-		log.Println("No new records to sync.")
-		return nil
-	}
-
-	log.Printf("Found %d new records to sync.\n", len(classifications))
-
-	insertLiveDbQry := fmt.Sprintf(`
-		INSERT INTO %s(
-	id, name, arabic_name, suspended_at, created_at, updated_at, deleted_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7);
-	`, VIEW_DB_CLASSIFICATION_TABLE)
-
-	failed := []models.Classification{}
-	for _, classification := range classifications {
-		_, err := tx.Exec(context.Background(), insertLiveDbQry,
-			classification.ID,
-			classification.Name,
-			classification.ArabicName,
-			classification.SuspendedAt,
-			classification.CreatedAt,
-			classification.UpdatedAt,
-			classification.DeletedAt,
-		)
-		if err != nil {
-			log.Println("Failed to insert classification: " + err.Error())
-			failed = append(failed, classification)
-		}
-	}
-
-	if len(failed) > 0 {
-		log.Printf("Failed to sync %d classifications.\n", len(failed))
-	} else {
-		log.Println("All classifications synced successfully.")
-	}
-
-	return nil
-}
-
-func (repo *ClassificationRepository) SyncNow() error {
-	latestCreatedAt, err := repo.LatestClassificationCreatedAt()
-	if err != nil {
-		log.Println("Failed to get latest created_at: " + err.Error())
-		return err
-	}
-
-	if latestCreatedAt == nil {
-		log.Println("Table is empty — no records found.")
-	} else {
-		log.Println("Latest created_at:", latestCreatedAt)
-	}
-
-	var classifications []models.Classification
-	classifications, err = repo.GetNewClassifications(latestCreatedAt)
-
-	if err != nil {
-		log.Println("Failed to get new records: " + err.Error())
-		return err
-	}
-
-	tx, err := repo.liveDb.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-
-	return repo.SyncViewDbWithLiveDB(classifications, tx)
-}

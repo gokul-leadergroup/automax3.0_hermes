@@ -6,6 +6,7 @@ import (
 
 	"github.com/gokul-leadergroup/automax3.0_hermes/config"
 	"github.com/gokul-leadergroup/automax3.0_hermes/live_db_repository"
+	"github.com/gokul-leadergroup/automax3.0_hermes/view_db_repository"
 	"github.com/hibiken/asynq"
 )
 
@@ -26,28 +27,30 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	recordRepo := live_db_repository.NewRecordRepository()
-	classificationRepo := live_db_repository.NewClassificationRepository()
+	recordLiveDbRepo := live_db_repository.NewRecordRepository()
+	classificationLiveDbRepo := live_db_repository.NewClassificationRepository()
 
-	latestRecordCreatedAt, err := recordRepo.LatestRecordCreatedAt()
+	classificationViewDbRepo := view_db_repository.NewClassificationRepository()
+
+	latestRecordCreatedAt, err := recordLiveDbRepo.LatestRecordCreatedAt()
 	if err != nil {
 		log.Println("Failed to get latest record created_at: " + err.Error())
 		return err
 	}
 
-	latestClassificationCreatedAt, err := classificationRepo.LatestClassificationCreatedAt()
+	latestClassificationCreatedAt, err := classificationViewDbRepo.LatestClassificationCreatedAt()
 	if err != nil {
 		log.Println("Failed to get latest classification created_at: " + err.Error())
 		return err
 	}
 
-	newRecords, err := recordRepo.GetNewRecords(latestRecordCreatedAt)
+	newRecords, err := recordLiveDbRepo.GetNewRecords(latestRecordCreatedAt)
 	if err != nil {
 		log.Println("Failed to get new records: " + err.Error())
 		return err
 	}
 
-	newClassifications, err := classificationRepo.GetNewClassifications(latestClassificationCreatedAt)
+	newClassifications, err := classificationLiveDbRepo.GetNewClassifications(latestClassificationCreatedAt)
 	if err != nil {
 		log.Println("Failed to get new classifications: " + err.Error())
 		return err
@@ -60,13 +63,13 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	if err := recordRepo.SyncViewDbWithLiveDB(newRecords, tx); err != nil {
+	if err := recordLiveDbRepo.SyncViewDbWithLiveDB(newRecords, tx); err != nil {
 		log.Println("Failed to sync compose records table. Error: ", err.Error())
 		tx.Rollback(context.Background())
 		return err
 	}
 
-	if err := classificationRepo.SyncViewDbWithLiveDB(newClassifications, tx); err != nil {
+	if err := classificationViewDbRepo.SyncViewDbWithLiveDB(newClassifications, tx); err != nil {
 		log.Println("Failed to sync compose classification table. Error: ", err.Error())
 		tx.Rollback(context.Background())
 		return err
