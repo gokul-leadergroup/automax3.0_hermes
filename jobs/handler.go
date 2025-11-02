@@ -33,6 +33,7 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 	classificationViewDbRepo := view_db_repository.NewClassificationRepository()
 	recordViewDbRepo := view_db_repository.NewRecordRepository()
 
+	// Step 1 => Getting the latest created at time among the records
 	latestRecordCreatedAt, err := recordViewDbRepo.LatestRecordCreatedAt()
 	if err != nil {
 		log.Println("Failed to get latest record created_at: " + err.Error())
@@ -45,6 +46,7 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
+	// Step 2 => Getting new data from live db
 	newRecords, err := recordLiveDbRepo.GetNewRecords(latestRecordCreatedAt)
 	if err != nil {
 		log.Println("Failed to get new records: " + err.Error())
@@ -57,7 +59,7 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	// Transaction to insert records and classifications
+	// Step 3 => Transaction to append new datas
 	tx, err := viewDbConn.Begin(context.Background())
 	if err != nil {
 		log.Println("Failed to begin transaction: " + err.Error())
