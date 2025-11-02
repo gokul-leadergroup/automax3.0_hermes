@@ -1,4 +1,4 @@
-package repository
+package live_db_repository
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func connectToDB(dsn string) (*pgx.Conn, error) {
+func PgConx(dsn string) (*pgx.Conn, error) {
 	conn, err := pgx.Connect(context.Background(), dsn)
 	if err != nil {
 		return nil, err

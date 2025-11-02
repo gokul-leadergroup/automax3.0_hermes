@@ -3,12 +3,12 @@ package service
 import (
 	"time"
 
+	"github.com/gokul-leadergroup/automax3.0_hermes/live_db_repository"
 	"github.com/gokul-leadergroup/automax3.0_hermes/models"
-	"github.com/gokul-leadergroup/automax3.0_hermes/repository"
 )
 
 type recordService struct {
-	repo *repository.RecordRepository
+	repo *live_db_repository.RecordRepository
 }
 
 type RecordService interface {
@@ -18,7 +18,7 @@ type RecordService interface {
 
 func NewRecordService() RecordService {
 	return &recordService{
-		repo: repository.NewRecordRepository(),
+		repo: live_db_repository.NewRecordRepository(),
 	}
 }
 

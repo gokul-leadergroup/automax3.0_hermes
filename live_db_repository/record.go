@@ -1,4 +1,4 @@
-package repository
+package live_db_repository
 
 import (
 	"context"
@@ -95,7 +95,7 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	return records, nil
 }
 
-func (repo *RecordRepository) SyncViewDbWithLiveDB(records []models.Record) error {
+func (repo *RecordRepository) SyncViewDbWithLiveDB(records []models.Record, tx pgx.Tx) error {
 	if len(records) == 0 {
 		log.Println("No new records to sync.")
 		return nil
@@ -162,7 +162,7 @@ func (repo *RecordRepository) SyncViewDbWithLiveDB(records []models.Record) erro
 
 	failed := []models.Incident{}
 	for _, incident := range incidents {
-		_, err := repo.viewDb.Exec(context.Background(), insertLiveDbQry,
+		_, err := tx.Exec(context.Background(), insertLiveDbQry,
 			incident.ID,
 			0,
 			0,
@@ -207,7 +207,7 @@ func (repo *RecordRepository) SyncNow() error {
 		log.Println("Failed to get latest created_at: " + err.Error())
 		return err
 	}
-	
+
 	if latestCreatedAt == nil {
 		log.Println("Table is empty — no records found.")
 	} else {
@@ -222,5 +222,10 @@ func (repo *RecordRepository) SyncNow() error {
 		return err
 	}
 
-	return repo.SyncViewDbWithLiveDB(records)
+	tx, err := repo.liveDb.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return repo.SyncViewDbWithLiveDB(records, tx)
 }

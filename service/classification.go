@@ -3,12 +3,12 @@ package service
 import (
 	"time"
 
+	"github.com/gokul-leadergroup/automax3.0_hermes/live_db_repository"
 	"github.com/gokul-leadergroup/automax3.0_hermes/models"
-	"github.com/gokul-leadergroup/automax3.0_hermes/repository"
 )
 
 type classificationService struct {
-	repo *repository.ClassificationRepository
+	repo *live_db_repository.ClassificationRepository
 }
 
 type ClassificationService interface {
@@ -18,7 +18,7 @@ type ClassificationService interface {
 
 func NewClassificationService() ClassificationService {
 	return &classificationService{
-		repo: repository.NewClassificationRepository(),
+		repo: live_db_repository.NewClassificationRepository(),
 	}
 }
 

@@ -1,4 +1,4 @@
-package repository
+package live_db_repository
 
 import (
 	"context"
@@ -93,7 +93,7 @@ func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time
 	return classifications, nil
 }
 
-func (repo *ClassificationRepository) SyncViewDbWithLiveDB(classifications []models.Classification) error {
+func (repo *ClassificationRepository) SyncViewDbWithLiveDB(classifications []models.Classification, tx pgx.Tx) error {
 	if len(classifications) == 0 {
 		log.Println("No new records to sync.")
 		return nil
@@ -109,7 +109,7 @@ func (repo *ClassificationRepository) SyncViewDbWithLiveDB(classifications []mod
 
 	failed := []models.Classification{}
 	for _, classification := range classifications {
-		_, err := repo.viewDb.Exec(context.Background(), insertLiveDbQry,
+		_, err := tx.Exec(context.Background(), insertLiveDbQry,
 			classification.ID,
 			classification.Name,
 			classification.ArabicName,
@@ -154,5 +154,10 @@ func (repo *ClassificationRepository) SyncNow() error {
 		return err
 	}
 
-	return repo.SyncViewDbWithLiveDB(classifications)
+	tx, err := repo.liveDb.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return repo.SyncViewDbWithLiveDB(classifications, tx)
 }
