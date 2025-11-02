@@ -47,6 +47,17 @@ func NewClassificationRepository() *ClassificationRepository {
 	return &ClassificationRepository{liveDb: live_db_conn, viewDb: view_db_conn}
 }
 
+func (repo *ClassificationRepository) LatestClassificationCreatedAt() (*time.Time, error) {
+	var latestCreatedAt *time.Time
+	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_CLASSIFICATION_TABLE)
+	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	if err != nil {
+		log.Println("Failed to execute query:", err)
+		return nil, err
+	}
+	return latestCreatedAt, nil
+}
+
 func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time) ([]models.Classification, error) {
 	var qry = ""
 	if sinceTime == nil {
@@ -123,12 +134,9 @@ func (repo *ClassificationRepository) SyncViewDbWithLiveDB(classifications []mod
 }
 
 func (repo *ClassificationRepository) SyncNow() error {
-	var latestCreatedAt *time.Time // use a pointer
-
-	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_CLASSIFICATION_TABLE)
-	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	latestCreatedAt, err := repo.LatestClassificationCreatedAt()
 	if err != nil {
-		log.Println("Failed to execute query:", err)
+		log.Println("Failed to get latest created_at: " + err.Error())
 		return err
 	}
 

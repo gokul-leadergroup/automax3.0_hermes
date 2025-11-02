@@ -47,6 +47,17 @@ func NewRecordRepository() *RecordRepository {
 	return &RecordRepository{liveDb: live_db_conn, viewDb: view_db_conn}
 }
 
+func (repo *RecordRepository) LatestRecordCreatedAt() (*time.Time, error) {
+	var latestCreatedAt *time.Time
+	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
+	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	if err != nil {
+		log.Println("Failed to execute query:", err)
+		return nil, err
+	}
+	return latestCreatedAt, nil
+}
+
 func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Record, error) {
 	var qry = ""
 	if sinceTime == nil {
@@ -191,15 +202,12 @@ func (repo *RecordRepository) SyncViewDbWithLiveDB(records []models.Record) erro
 }
 
 func (repo *RecordRepository) SyncNow() error {
-	var latestCreatedAt *time.Time // use a pointer
-
-	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
-	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	latestCreatedAt, err := repo.LatestRecordCreatedAt()
 	if err != nil {
-		log.Println("Failed to execute query:", err)
+		log.Println("Failed to get latest created_at: " + err.Error())
 		return err
 	}
-
+	
 	if latestCreatedAt == nil {
 		log.Println("Table is empty — no records found.")
 	} else {
