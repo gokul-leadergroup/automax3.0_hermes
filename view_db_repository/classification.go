@@ -51,7 +51,7 @@ func (repo *ClassificationRepository) LatestClassificationCreatedAt() (*time.Tim
 	return latestCreatedAt, nil
 }
 
-func (repo *ClassificationRepository) SyncViewDbWithLiveDB(newClassifications []models.Classification, tx pgx.Tx) error {
+func (repo *ClassificationRepository) BulkInsert(newClassifications []models.Classification, tx pgx.Tx) error {
 	if len(newClassifications) == 0 {
 		log.Println("No new records to sync.")
 		return nil

@@ -69,7 +69,7 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	if err := classificationViewDbRepo.SyncViewDbWithLiveDB(newClassifications, tx); err != nil {
+	if err := classificationViewDbRepo.BulkInsert(newClassifications, tx); err != nil {
 		log.Println("Failed to sync compose classification table. Error: ", err.Error())
 		tx.Rollback(context.Background())
 		return err
