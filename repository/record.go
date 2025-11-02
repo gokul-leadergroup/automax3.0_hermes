@@ -31,7 +31,7 @@ func NewRecordRepository() *RecordRepository {
 		log.Panicln("LIVE_DB_DSN environment variable is not set")
 	}
 
-	live_db_conn, err := connectToDB(live_db_dsn)
+	live_db_conn, err := PgConx(live_db_dsn)
 	if err != nil {
 		log.Panicln("Failed to connect to live database: " + err.Error())
 	}
@@ -39,7 +39,7 @@ func NewRecordRepository() *RecordRepository {
 	view_db_dsn := os.Getenv("VIEW_DB_DSN")
 	var view_db_conn *pgx.Conn = nil
 	if view_db_dsn != "" {
-		view_db_conn, err = connectToDB(view_db_dsn)
+		view_db_conn, err = PgConx(view_db_dsn)
 		if err != nil {
 			log.Panicln("Failed to connect to view database: " + err.Error())
 		}
@@ -84,30 +84,7 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	return records, nil
 }
 
-func (repo *RecordRepository) SyncNow() error {
-	var latestCreatedAt *time.Time // use a pointer
-
-	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
-	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
-	if err != nil {
-		log.Println("Failed to execute query:", err)
-		return err
-	}
-
-	if latestCreatedAt == nil {
-		log.Println("Table is empty — no records found.")
-	} else {
-		log.Println("Latest created_at:", latestCreatedAt)
-	}
-
-	var records []models.Record
-	records, err = repo.GetNewRecords(latestCreatedAt)
-
-	if err != nil {
-		log.Println("Failed to get new records: " + err.Error())
-		return err
-	}
-
+func (repo *RecordRepository) SyncViewDbWithLiveDB(records []models.Record) error {
 	if len(records) == 0 {
 		log.Println("No new records to sync.")
 		return nil
@@ -211,4 +188,31 @@ func (repo *RecordRepository) SyncNow() error {
 	}
 
 	return nil
+}
+
+func (repo *RecordRepository) SyncNow() error {
+	var latestCreatedAt *time.Time // use a pointer
+
+	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_INCIDENT_TABLE)
+	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	if err != nil {
+		log.Println("Failed to execute query:", err)
+		return err
+	}
+
+	if latestCreatedAt == nil {
+		log.Println("Table is empty — no records found.")
+	} else {
+		log.Println("Latest created_at:", latestCreatedAt)
+	}
+
+	var records []models.Record
+	records, err = repo.GetNewRecords(latestCreatedAt)
+
+	if err != nil {
+		log.Println("Failed to get new records: " + err.Error())
+		return err
+	}
+
+	return repo.SyncViewDbWithLiveDB(records)
 }

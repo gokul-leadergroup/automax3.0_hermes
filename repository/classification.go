@@ -31,7 +31,7 @@ func NewClassificationRepository() *ClassificationRepository {
 		log.Panicln("LIVE_DB_DSN environment variable is not set")
 	}
 
-	live_db_conn, err := connectToDB(live_db_dsn)
+	live_db_conn, err := PgConx(live_db_dsn)
 	if err != nil {
 		log.Panicln("Failed to connect to live database: " + err.Error())
 	}
@@ -39,7 +39,7 @@ func NewClassificationRepository() *ClassificationRepository {
 	view_db_dsn := os.Getenv("VIEW_DB_DSN")
 	var view_db_conn *pgx.Conn = nil
 	if view_db_dsn != "" {
-		view_db_conn, err = connectToDB(view_db_dsn)
+		view_db_conn, err = PgConx(view_db_dsn)
 		if err != nil {
 			log.Panicln("Failed to connect to view database: " + err.Error())
 		}
@@ -82,30 +82,7 @@ func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time
 	return classifications, nil
 }
 
-func (repo *ClassificationRepository) SyncNow() error {
-	var latestCreatedAt *time.Time // use a pointer
-
-	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_CLASSIFICATION_TABLE)
-	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
-	if err != nil {
-		log.Println("Failed to execute query:", err)
-		return err
-	}
-
-	if latestCreatedAt == nil {
-		log.Println("Table is empty — no records found.")
-	} else {
-		log.Println("Latest created_at:", latestCreatedAt)
-	}
-
-	var classifications []models.Classification
-	classifications, err = repo.GetNewClassifications(latestCreatedAt)
-
-	if err != nil {
-		log.Println("Failed to get new records: " + err.Error())
-		return err
-	}
-
+func (repo *ClassificationRepository) SyncViewDbWithLiveDB(classifications []models.Classification) error {
 	if len(classifications) == 0 {
 		log.Println("No new records to sync.")
 		return nil
@@ -143,4 +120,31 @@ func (repo *ClassificationRepository) SyncNow() error {
 	}
 
 	return nil
+}
+
+func (repo *ClassificationRepository) SyncNow() error {
+	var latestCreatedAt *time.Time // use a pointer
+
+	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, VIEW_DB_CLASSIFICATION_TABLE)
+	err := repo.viewDb.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	if err != nil {
+		log.Println("Failed to execute query:", err)
+		return err
+	}
+
+	if latestCreatedAt == nil {
+		log.Println("Table is empty — no records found.")
+	} else {
+		log.Println("Latest created_at:", latestCreatedAt)
+	}
+
+	var classifications []models.Classification
+	classifications, err = repo.GetNewClassifications(latestCreatedAt)
+
+	if err != nil {
+		log.Println("Failed to get new records: " + err.Error())
+		return err
+	}
+
+	return repo.SyncViewDbWithLiveDB(classifications)
 }
