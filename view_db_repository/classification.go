@@ -57,8 +57,6 @@ func (repo *ClassificationRepository) BulkInsert(newClassifications []models.Cla
 		return nil
 	}
 
-	log.Printf("Found %d new records to sync.\n", len(newClassifications))
-
 	insertLiveDbQry := fmt.Sprintf(`
 		INSERT INTO %s(
 	id, name, arabic_name, suspended_at, created_at, updated_at, deleted_at)
@@ -83,9 +81,9 @@ func (repo *ClassificationRepository) BulkInsert(newClassifications []models.Cla
 	}
 
 	if len(failed) > 0 {
-		log.Printf("Failed to sync %d classifications.\n", len(failed))
+		log.Printf("Failed to insert %d classifications.\n", len(failed))
 	} else {
-		log.Println("All classifications synced successfully.")
+		log.Println("All classifications inserted successfully.")
 	}
 
 	return nil
