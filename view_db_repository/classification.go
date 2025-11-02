@@ -19,7 +19,7 @@ type ClassificationRepository struct {
 	conn *pgx.Conn
 }
 
-func NewClassificationRepository() *ClassificationRepository {
+func NewClassificationRepository(ctx context.Context) *ClassificationRepository {
 	if classificationRepo != nil {
 		return classificationRepo
 	}
@@ -29,7 +29,7 @@ func NewClassificationRepository() *ClassificationRepository {
 		log.Println("ENV variable not set for VIEW_DB_DSN")
 		return nil
 	}
-	view_db_conn, err := pgx.Connect(context.Background(), dsn)
+	view_db_conn, err := pgx.Connect(ctx, dsn)
 	if err != nil {
 		log.Panicln("Failed to connect to live database: " + err.Error())
 		return nil
@@ -40,10 +40,10 @@ func NewClassificationRepository() *ClassificationRepository {
 	return classificationRepo
 }
 
-func (repo *ClassificationRepository) LatestClassificationCreatedAt() (*time.Time, error) {
+func (repo *ClassificationRepository) LatestClassificationCreatedAt(ctx context.Context) (*time.Time, error) {
 	var latestCreatedAt *time.Time
 	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, CLASSIFICATION_TABLE)
-	err := repo.conn.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	err := repo.conn.QueryRow(ctx, query).Scan(&latestCreatedAt)
 	if err != nil {
 		log.Println("Failed to execute query:", err)
 		return nil, err
@@ -51,7 +51,7 @@ func (repo *ClassificationRepository) LatestClassificationCreatedAt() (*time.Tim
 	return latestCreatedAt, nil
 }
 
-func (repo *ClassificationRepository) BulkInsert(newClassifications []models.Classification, tx pgx.Tx) error {
+func (repo *ClassificationRepository) BulkInsert(ctx context.Context,newClassifications []models.Classification, tx pgx.Tx) error {
 	if len(newClassifications) == 0 {
 		log.Println("No new records to sync.")
 		return nil
@@ -65,7 +65,7 @@ func (repo *ClassificationRepository) BulkInsert(newClassifications []models.Cla
 
 	failed := []models.Classification{}
 	for _, classification := range newClassifications {
-		_, err := tx.Exec(context.Background(), insertLiveDbQry,
+		_, err := tx.Exec(ctx, insertLiveDbQry,
 			classification.ID,
 			classification.Name,
 			classification.ArabicName,

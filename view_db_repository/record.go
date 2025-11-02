@@ -19,14 +19,14 @@ type RecordRepository struct {
 	conn *pgx.Conn
 }
 
-func NewRecordRepository() *RecordRepository {
+func NewRecordRepository(ctx context.Context) *RecordRepository {
 	if recordRepo != nil {
 		return recordRepo
 	}
 
 	view_db_dsn := os.Getenv("VIEW_DB_DSN")
 	if view_db_dsn != "" {
-		view_db_conn, err := pgx.Connect(context.Background(), view_db_dsn)
+		view_db_conn, err := pgx.Connect(ctx, view_db_dsn)
 		if err != nil {
 			log.Panicln("Failed to connect to view database: " + err.Error())
 		}
@@ -38,10 +38,10 @@ func NewRecordRepository() *RecordRepository {
 	}
 }
 
-func (repo *RecordRepository) LatestRecordCreatedAt() (*time.Time, error) {
+func (repo *RecordRepository) LatestRecordCreatedAt(ctx context.Context) (*time.Time, error) {
 	var latestCreatedAt *time.Time
 	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, RECORD_TABLE)
-	err := repo.conn.QueryRow(context.Background(), query).Scan(&latestCreatedAt)
+	err := repo.conn.QueryRow(ctx, query).Scan(&latestCreatedAt)
 	if err != nil {
 		log.Println("Failed to execute query:", err)
 		return nil, err
@@ -49,7 +49,7 @@ func (repo *RecordRepository) LatestRecordCreatedAt() (*time.Time, error) {
 	return latestCreatedAt, nil
 }
 
-func (repo *RecordRepository) BulkInsert(records []models.Record, tx pgx.Tx) error {
+func (repo *RecordRepository) BulkInsert(ctx context.Context, records []models.Record, tx pgx.Tx) error {
 	if len(records) == 0 {
 		log.Println("No new records to insert.")
 		return nil
@@ -115,7 +115,7 @@ func (repo *RecordRepository) BulkInsert(records []models.Record, tx pgx.Tx) err
 
 	failed := []models.Incident{}
 	for _, incident := range incidents {
-		_, err := tx.Exec(context.Background(), insertLiveDbQry,
+		_, err := tx.Exec(ctx, insertLiveDbQry,
 			incident.ID,
 			0,
 			0,
@@ -148,7 +148,7 @@ func (repo *RecordRepository) BulkInsert(records []models.Record, tx pgx.Tx) err
 	if len(failed) > 0 {
 		log.Printf("Failed to insert %d incidents.\n", len(failed))
 	} else {
-		log.Println("All incidents insertec successfully.")
+		log.Println("All incidents inserted successfully.")
 	}
 
 	return nil

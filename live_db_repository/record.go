@@ -19,7 +19,7 @@ type RecordRepository struct {
 	conn *pgx.Conn
 }
 
-func NewRecordRepository() *RecordRepository {
+func NewRecordRepository(ctx context.Context) *RecordRepository {
 	if recordRepo != nil {
 		return recordRepo
 	}
@@ -29,7 +29,7 @@ func NewRecordRepository() *RecordRepository {
 		log.Panicln("LIVE_DB_DSN environment variable is not set")
 	}
 
-	live_db_conn, err := PgConx(live_db_dsn)
+	live_db_conn, err := pgx.Connect(ctx, live_db_dsn)
 	if err != nil {
 		log.Panicln("Failed to connect to live database: " + err.Error())
 	}
@@ -37,7 +37,7 @@ func NewRecordRepository() *RecordRepository {
 	return &RecordRepository{conn: live_db_conn}
 }
 
-func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Record, error) {
+func (repo *RecordRepository) GetNewRecords(ctx context.Context, sinceTime *time.Time) ([]models.Record, error) {
 	var qry = ""
 	if sinceTime == nil {
 		qry = fmt.Sprintf(`
@@ -55,7 +55,7 @@ func (repo *RecordRepository) GetNewRecords(sinceTime *time.Time) ([]models.Reco
 	`, RECORD_TABLE, sinceTime.Format("2006-01-02 15:04:05-07"))
 	}
 
-	rows, err := repo.conn.Query(context.Background(), qry)
+	rows, err := repo.conn.Query(ctx, qry)
 	if err != nil {
 		log.Println("Failed to execute query: " + err.Error())
 		return nil, err
