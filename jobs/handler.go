@@ -31,8 +31,9 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 	classificationLiveDbRepo := live_db_repository.NewClassificationRepository()
 
 	classificationViewDbRepo := view_db_repository.NewClassificationRepository()
+	recordViewDbRepo := view_db_repository.NewRecordRepository()
 
-	latestRecordCreatedAt, err := recordLiveDbRepo.LatestRecordCreatedAt()
+	latestRecordCreatedAt, err := recordViewDbRepo.LatestRecordCreatedAt()
 	if err != nil {
 		log.Println("Failed to get latest record created_at: " + err.Error())
 		return err
@@ -63,7 +64,7 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	if err := recordLiveDbRepo.SyncViewDbWithLiveDB(newRecords, tx); err != nil {
+	if err := recordViewDbRepo.BulkInsert(newRecords, tx); err != nil {
 		log.Println("Failed to sync compose records table. Error: ", err.Error())
 		tx.Rollback(context.Background())
 		return err

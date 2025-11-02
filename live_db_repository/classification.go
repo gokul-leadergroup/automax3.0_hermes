@@ -11,14 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const LIVE_DB_CLASSIFICATION_TABLE = "classification"
-const VIEW_DB_CLASSIFICATION_TABLE = "classification"
+const CLASSIFICATION_TABLE = "classification"
 
 var classificationRepo *ClassificationRepository
 
 type ClassificationRepository struct {
-	liveDb *pgx.Conn
-	viewDb *pgx.Conn
+	conn *pgx.Conn
 }
 
 func NewClassificationRepository() *ClassificationRepository {
@@ -31,20 +29,11 @@ func NewClassificationRepository() *ClassificationRepository {
 		log.Panicln("LIVE_DB_DSN environment variable is not set")
 	}
 
-	live_db_conn, err := PgConx(live_db_dsn)
+	live_db_conn, err := pgx.Connect(context.Background(), live_db_dsn)
 	if err != nil {
 		log.Panicln("Failed to connect to live database: " + err.Error())
 	}
-
-	view_db_dsn := os.Getenv("VIEW_DB_DSN")
-	var view_db_conn *pgx.Conn = nil
-	if view_db_dsn != "" {
-		view_db_conn, err = PgConx(view_db_dsn)
-		if err != nil {
-			log.Panicln("Failed to connect to view database: " + err.Error())
-		}
-	}
-	return &ClassificationRepository{liveDb: live_db_conn, viewDb: view_db_conn}
+	return &ClassificationRepository{conn: live_db_conn}
 }
 
 func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time) ([]models.Classification, error) {
@@ -54,16 +43,16 @@ func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time
 		SELECT id, name, arabic_name, suspended_at, created_at, updated_at, deleted_at
 		FROM %s 
 		WHERE deleted_at IS NULL;
-	`, LIVE_DB_CLASSIFICATION_TABLE)
+	`, CLASSIFICATION_TABLE)
 	} else {
 		qry = fmt.Sprintf(`
 		SELECT id, name, arabic_name, suspended_at, created_at, updated_at, deleted_at
 		FROM %s 
 		WHERE created_at > '%s' AND deleted_at IS NULL;
-	`, LIVE_DB_CLASSIFICATION_TABLE, sinceTime.Format("2006-01-02 15:04:05-07"))
+	`, CLASSIFICATION_TABLE, sinceTime.Format("2006-01-02 15:04:05-07"))
 	}
 
-	rows, err := repo.liveDb.Query(context.Background(), qry)
+	rows, err := repo.conn.Query(context.Background(), qry)
 	if err != nil {
 		log.Println("Failed to execute query: " + err.Error())
 		return nil, err
@@ -81,4 +70,3 @@ func (repo *ClassificationRepository) GetNewClassifications(sinceTime *time.Time
 	}
 	return classifications, nil
 }
-
