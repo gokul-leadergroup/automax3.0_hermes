@@ -3,7 +3,6 @@ package live_db_repository
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -19,22 +18,22 @@ type RecordRepository struct {
 	conn *pgx.Conn
 }
 
-func NewRecordRepository(ctx context.Context) *RecordRepository {
+func NewRecordRepository(ctx context.Context) (*RecordRepository, error) {
 	if recordRepo != nil {
-		return recordRepo
+		return recordRepo, nil
 	}
 
 	live_db_dsn := os.Getenv("LIVE_DB_DSN")
 	if live_db_dsn == "" {
-		log.Panicln("LIVE_DB_DSN environment variable is not set")
+		return nil, fmt.Errorf("LIVE_DB_DSN environment variable is not set")
 	}
 
 	live_db_conn, err := pgx.Connect(ctx, live_db_dsn)
 	if err != nil {
-		log.Panicln("Failed to connect to live database: " + err.Error())
+		return nil, err
 	}
 
-	return &RecordRepository{conn: live_db_conn}
+	return &RecordRepository{conn: live_db_conn}, nil
 }
 
 func (repo *RecordRepository) GetNewRecords(ctx context.Context, sinceTime *time.Time) ([]models.Record, error) {
@@ -57,7 +56,6 @@ func (repo *RecordRepository) GetNewRecords(ctx context.Context, sinceTime *time
 
 	rows, err := repo.conn.Query(ctx, qry)
 	if err != nil {
-		log.Println("Failed to execute query: " + err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -66,7 +64,6 @@ func (repo *RecordRepository) GetNewRecords(ctx context.Context, sinceTime *time
 	for rows.Next() {
 		var record models.Record
 		if err := rows.Scan(&record.ID, &record.Revision, &record.ModuleID, &record.Values, &record.Meta, &record.NamespaceID, &record.CreatedAt, &record.UpdatedAt, &record.DeletedAt, &record.OwnedBy, &record.CreatedBy, &record.UpdatedBy, &record.DeletedBy); err != nil {
-			log.Println("Failed to scan row: " + err.Error())
 			return nil, err
 		}
 		records = append(records, record)

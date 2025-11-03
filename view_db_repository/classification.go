@@ -19,25 +19,23 @@ type ClassificationRepository struct {
 	conn *pgx.Conn
 }
 
-func NewClassificationRepository(ctx context.Context) *ClassificationRepository {
+func NewClassificationRepository(ctx context.Context) (*ClassificationRepository, error) {
 	if classificationRepo != nil {
-		return classificationRepo
+		return classificationRepo, nil
 	}
 
 	dsn := os.Getenv("VIEW_DB_DSN")
 	if dsn == "" {
-		log.Println("ENV variable not set for VIEW_DB_DSN")
-		return nil
+		return nil, fmt.Errorf("ENV variable not set for VIEW_DB_DSN")
 	}
 	view_db_conn, err := pgx.Connect(ctx, dsn)
 	if err != nil {
-		log.Panicln("Failed to connect to live database: " + err.Error())
-		return nil
+		return nil, err
 	}
 
 	classificationRepo = &ClassificationRepository{conn: view_db_conn}
 
-	return classificationRepo
+	return classificationRepo, nil
 }
 
 func (repo *ClassificationRepository) LatestClassificationCreatedAt(ctx context.Context) (*time.Time, error) {
@@ -45,15 +43,13 @@ func (repo *ClassificationRepository) LatestClassificationCreatedAt(ctx context.
 	query := fmt.Sprintf(`SELECT MAX(created_at) FROM %s`, CLASSIFICATION_TABLE)
 	err := repo.conn.QueryRow(ctx, query).Scan(&latestCreatedAt)
 	if err != nil {
-		log.Println("Failed to execute query:", err)
 		return nil, err
 	}
 	return latestCreatedAt, nil
 }
 
-func (repo *ClassificationRepository) BulkInsert(ctx context.Context,newClassifications []models.Classification, tx pgx.Tx) error {
+func (repo *ClassificationRepository) BulkInsert(ctx context.Context, newClassifications []models.Classification, tx pgx.Tx) error {
 	if len(newClassifications) == 0 {
-		log.Println("No new records to sync.")
 		return nil
 	}
 
@@ -75,15 +71,13 @@ func (repo *ClassificationRepository) BulkInsert(ctx context.Context,newClassifi
 			classification.DeletedAt,
 		)
 		if err != nil {
-			log.Println("Failed to insert classification: " + err.Error())
+			log.Printf("Failed to insert classification ID %s: %s\n", classification.ID, err.Error())
 			failed = append(failed, classification)
 		}
 	}
 
 	if len(failed) > 0 {
 		log.Printf("Failed to insert %d classifications.\n", len(failed))
-	} else {
-		log.Println("All classifications inserted successfully.")
 	}
 
 	return nil

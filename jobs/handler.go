@@ -27,10 +27,23 @@ func SyncDatabases(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	recordLiveDbRepo := live_db_repository.NewRecordRepository(ctx)
-	classificationLiveDbRepo := live_db_repository.NewClassificationRepository(ctx)
+	recordLiveDbRepo, err := live_db_repository.NewRecordRepository(ctx)
+	if err != nil {
+		log.Println("Failed to connect to live database: " + err.Error())
+		return err
+	}
 
-	classificationViewDbRepo := view_db_repository.NewClassificationRepository(ctx)
+	classificationLiveDbRepo, err := live_db_repository.NewClassificationRepository(ctx)
+	if err != nil {
+		log.Println("Failed to connect to live database: " + err.Error())
+		return err
+	}
+
+	classificationViewDbRepo, err := view_db_repository.NewClassificationRepository(ctx)
+	if err != nil {
+		log.Println("Failed to connect to view database: " + err.Error())
+		return err
+	}
 	recordViewDbRepo := view_db_repository.NewRecordRepository(ctx)
 
 	// Step 1 => Getting the latest created at time among the records

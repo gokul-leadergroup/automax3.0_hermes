@@ -3,7 +3,6 @@ package live_db_repository
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -19,21 +18,21 @@ type ClassificationRepository struct {
 	conn *pgx.Conn
 }
 
-func NewClassificationRepository(ctx context.Context) *ClassificationRepository {
+func NewClassificationRepository(ctx context.Context) (*ClassificationRepository, error) {
 	if classificationRepo != nil {
-		return classificationRepo
+		return classificationRepo, nil
 	}
 
 	live_db_dsn := os.Getenv("LIVE_DB_DSN")
 	if live_db_dsn == "" {
-		log.Panicln("LIVE_DB_DSN environment variable is not set")
+		return nil, fmt.Errorf("LIVE_DB_DSN environment variable is not set")
 	}
 
 	live_db_conn, err := pgx.Connect(ctx, live_db_dsn)
 	if err != nil {
-		log.Panicln("Failed to connect to live database: " + err.Error())
+		return nil, err
 	}
-	return &ClassificationRepository{conn: live_db_conn}
+	return &ClassificationRepository{conn: live_db_conn}, nil
 }
 
 func (repo *ClassificationRepository) GetNewClassifications(ctx context.Context, sinceTime *time.Time) ([]models.Classification, error) {
@@ -54,7 +53,6 @@ func (repo *ClassificationRepository) GetNewClassifications(ctx context.Context,
 
 	rows, err := repo.conn.Query(ctx, qry)
 	if err != nil {
-		log.Println("Failed to execute query: " + err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -63,7 +61,6 @@ func (repo *ClassificationRepository) GetNewClassifications(ctx context.Context,
 	for rows.Next() {
 		var classification models.Classification
 		if err := rows.Scan(&classification.ID, &classification.Name, &classification.ArabicName, &classification.SuspendedAt, &classification.CreatedAt, &classification.UpdatedAt, &classification.DeletedAt); err != nil {
-			log.Println("Failed to scan row: " + err.Error())
 			return nil, err
 		}
 		classifications = append(classifications, classification)
